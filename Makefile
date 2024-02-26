@@ -1,6 +1,12 @@
 ARGS := $(wordlist 2,$(words $(MAKECMDGOALS)),$(MAKECMDGOALS))
 $(eval $(ARGS):;@:)
 
+.DEFAULT_GOAL := help
+
+.PHONY: help
+help:
+	@echo "Usage: make bootstrap|clean|configure|build|run|reconfigure"
+
 .PHONY: bootstrap
 bootstrap:
 	git submodule update --init && vcpkg/bootstrap-vcpkg.sh
@@ -11,7 +17,7 @@ clean:
 
 .PHONY: configure
 configure:
-	cmake -S . -B build -G Ninja
+	@cmake -S . -B build -G Ninja
 
 .PHONY: build
 build:
@@ -19,7 +25,7 @@ build:
 
 .PHONY: run
 run: build
-	@build/main $(ARGS)
+	@build/example $(ARGS)
 
 .PHONY: reconfigure
 reconfigure: clean configure
