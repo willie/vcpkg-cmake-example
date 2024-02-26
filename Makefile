@@ -5,6 +5,7 @@ $(eval $(ARGS):;@:)
 
 .PHONY: help
 help:
+	@echo "Be sure to define OTEL_EXPORTER_OTLP_ENDPOINT & OTEL_EXPORTER_OTLP_HEADERS before running."
 	@echo "Usage: make bootstrap|clean|configure|build|run|reconfigure"
 
 .PHONY: bootstrap
