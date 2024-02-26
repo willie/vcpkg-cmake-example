@@ -1,55 +1,98 @@
-#include "CLI/App.hpp"
-#include "CLI/Config.hpp"
-#include "CLI/Formatter.hpp"
-#include <fmt/ranges.h>
-#include <vector>
+// Copyright The OpenTelemetry Authors
+// SPDX-License-Identifier: Apache-2.0
 
-// Forward declarations
-void demo1Handler();
-void demo2Handler();
+#include "opentelemetry/exporters/otlp/otlp_http_exporter_factory.h"
+#include "opentelemetry/exporters/otlp/otlp_http_exporter_options.h"
+#include "opentelemetry/sdk/common/global_log_handler.h"
+#include "opentelemetry/sdk/trace/processor.h"
+#include "opentelemetry/sdk/trace/simple_processor_factory.h"
+#include "opentelemetry/sdk/trace/tracer_provider_factory.h"
+#include "opentelemetry/trace/provider.h"
 
-int main(int argc, char **argv) {
-  CLI::App app{"Template project with cmake and vcpkg"};
-  app.require_subcommand();
+// sdk::TracerProvider is just used to call ForceFlush and prevent to cancel running exportings when
+// destroy and shutdown exporters.It's optional to users.
+#include "opentelemetry/sdk/trace/tracer_provider.h"
 
-  auto demo1 = app.add_subcommand("demo1", "Demo 1");
-  auto demo2 = app.add_subcommand("demo2", "Demo 2");
+#include <string>
 
-  CLI11_PARSE(app, argc, argv);
 
-  if (demo1->parsed()) {
-    demo1Handler();
-  }
+# include "foo_library.h"
 
-  if (demo2->parsed()) {
-    demo2Handler();
-  }
 
-  return 0;
+namespace trace     = opentelemetry::trace;
+namespace trace_sdk = opentelemetry::sdk::trace;
+namespace otlp      = opentelemetry::exporter::otlp;
+
+namespace internal_log = opentelemetry::sdk::common::internal_log;
+
+namespace
+{
+opentelemetry::exporter::otlp::OtlpHttpExporterOptions opts;
+void InitTracer()
+{
+  // Create OTLP exporter instance
+  auto exporter  = otlp::OtlpHttpExporterFactory::Create(opts);
+  auto processor = trace_sdk::SimpleSpanProcessorFactory::Create(std::move(exporter));
+  std::shared_ptr<opentelemetry::trace::TracerProvider> provider =
+      trace_sdk::TracerProviderFactory::Create(std::move(processor));
+  // Set the global trace provider
+  trace::Provider::SetTracerProvider(provider);
 }
 
-void demo1Handler() {
-  fmt::print("Welcome to Demo 1!\n\n");
+void CleanupTracer()
+{
+  // We call ForceFlush to prevent to cancel running exportings, It's optional.
+  opentelemetry::nostd::shared_ptr<opentelemetry::trace::TracerProvider> provider =
+      trace::Provider::GetTracerProvider();
+  if (provider)
+  {
+    static_cast<trace_sdk::TracerProvider *>(provider.get())->ForceFlush();
+  }
 
-  std::vector<int> vec{1, 2, 3, 4};
-  fmt::print("Vec: {}\n", vec);
-
-  vec.push_back(5);
-  fmt::print("Vec: {}\n", vec);
-
-  auto closure = [vec](int n) mutable {
-    vec.push_back(n);
-    fmt::print("Closure vec: {}\n", vec);
-  };
-  closure(6);
-  closure(7);
-
-  fmt::print("Vec: {}\n", vec);
+  std::shared_ptr<opentelemetry::trace::TracerProvider> none;
+  trace::Provider::SetTracerProvider(none);
 }
+}  // namespace
 
-void demo2Handler() {
-  const auto msg = R"(Welcome to Demo 2!
-There's nothing here currently.
-)";
-  fmt::print(msg);
+/*
+  Usage:
+  - example_otlp_http
+  - example_otlp_http <URL>
+  - example_otlp_http <URL> <DEBUG>
+  - example_otlp_http <URL> <DEBUG> <BIN>
+  <DEBUG> = yes|no, to turn console debug on or off
+  <BIN> = bin, to export in binary format
+*/
+int main(int argc, char *argv[])
+{
+  if (argc > 1)
+  {
+    opts.url = argv[1];
+    if (argc > 2)
+    {
+      std::string debug  = argv[2];
+      opts.console_debug = debug != "" && debug != "0" && debug != "no";
+    }
+
+    if (argc > 3)
+    {
+      std::string binary_mode = argv[3];
+      if (binary_mode.size() >= 3 && binary_mode.substr(0, 3) == "bin")
+      {
+        opts.content_type = otlp::HttpRequestContentType::kBinary;
+      }
+    }
+  }
+
+  if (opts.console_debug)
+  {
+    internal_log::GlobalLogHandler::SetLogLevel(internal_log::LogLevel::Debug);
+  }
+
+  // Removing this line will leave the default noop TracerProvider in place.
+  InitTracer();
+
+  foo_library();
+
+  CleanupTracer();
 }
