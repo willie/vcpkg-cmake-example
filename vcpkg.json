@@ -6,12 +6,10 @@
             "name": "opentelemetry-cpp",
             "default-features": true,
             "features": [
-                "otlp-grpc",
                 "otlp-http"
             ]
         },
         "protobuf",
-        "grpc",
         "nlohmann-json",
         "curl"
     ]

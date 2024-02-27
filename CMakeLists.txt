@@ -19,7 +19,6 @@ target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE
 	opentelemetry-cpp::ostream_log_record_exporter
 	opentelemetry-cpp::ostream_metrics_exporter
 	opentelemetry-cpp::ostream_span_exporter
-	opentelemetry-cpp::otlp_grpc_exporter
 	opentelemetry-cpp::otlp_http_client
 	opentelemetry-cpp::otlp_http_exporter
 	opentelemetry-cpp::otlp_http_log_record_exporter
@@ -32,12 +31,10 @@ target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE
 	opentelemetry-cpp::version
 )
 
-# find_package(Protobuf CONFIG REQUIRED) # doesn't link
-find_package(Protobuf CONFIG REQUIRED) # links
-target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE protobuf::libprotobuf)
+# the following are all required for opentelemetry-cpp/otlp-http
 
-find_package(gRPC CONFIG REQUIRED)
-target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE gRPC::grpc++)
+find_package(Protobuf CONFIG REQUIRED) # capitalization is important for protobuf
+target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE protobuf::libprotobuf)
 
 find_package(nlohmann_json CONFIG REQUIRED)
 target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE nlohmann_json::nlohmann_json)
