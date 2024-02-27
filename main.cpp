@@ -20,18 +20,33 @@
 namespace trace = opentelemetry::trace;
 namespace trace_sdk = opentelemetry::sdk::trace;
 namespace otlp = opentelemetry::exporter::otlp;
-
 namespace internal_log = opentelemetry::sdk::common::internal_log;
+namespace sdk_common = opentelemetry::sdk::common;
+namespace resource = opentelemetry::sdk::resource;
 
 namespace {
+	resource::Resource GetResource() {
+		static auto res = resource::Resource::GetDefault();
+		
+		std::string value;
+		if (sdk_common::GetStringEnvironmentVariable("OTEL_SERVICE_NAME", value)){
+			res = res.Merge(resource::Resource::Create({{"service.name", value}}));
+		}
+
+		return res;
+	}
+
+
+  	// auto resource = opentelemetry::sdk::resource::Resource::Create({{"service.name", "example"}});
+	// auto resource = GetResource();
 	opentelemetry::exporter::otlp::OtlpHttpExporterOptions opts;
-	
+
 	void InitTracer() {
 		// Create OTLP exporter instance
 		auto exporter = otlp::OtlpHttpExporterFactory::Create(opts);
 		auto processor = trace_sdk::SimpleSpanProcessorFactory::Create(std::move(exporter));
 		std::shared_ptr<opentelemetry::trace::TracerProvider> provider =
-			trace_sdk::TracerProviderFactory::Create(std::move(processor));
+			trace_sdk::TracerProviderFactory::Create(std::move(processor), GetResource());
 		// Set the global trace provider
 		trace::Provider::SetTracerProvider(provider);
 	}
